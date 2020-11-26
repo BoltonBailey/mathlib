@@ -45,6 +45,11 @@ The exterior algebra of `M` is constructed as a quotient of the tensor algebra, 
 
 -/
 
+-- gh-5121
+@[simp] lemma fin.pred_lt_pred_iff {n : ℕ} {x y : fin n.succ} {hx hy} :
+  x.pred hx < y.pred hy ↔ x < y :=
+by rw [←fin.succ_lt_succ_iff, fin.succ_pred, fin.succ_pred]
+
 variables (R : Type*) [comm_semiring R]
 variables (M : Type*) [add_comm_monoid M] [semimodule R M]
 
@@ -163,8 +168,8 @@ end
 
 @[simp]
 lemma ι_add_mul_swap (x y : M) : ι R x * ι R y + ι R y * ι R x = 0 :=
-calc ι R x * ι R y + ι R y * ι R x = ι R (x + y) * ι R (x + y) : by simp [mul_add, add_mul]
-                               ... = 0 : ι_square_zero _
+calc _ = ι R (x + y) * ι R (x + y) : by simp [mul_add, add_mul]
+   ... = _ : ι_square_zero _
 
 lemma ι_mul_prod_list {n : ℕ} (f : fin n → M) (i : fin n) :
   ι R (f i) * (list.of_fn $ λ i, ι R $ f i).prod = 0 :=
@@ -173,17 +178,14 @@ begin
   { exact i.elim0, },
   { rw [list.of_fn_succ, list.prod_cons, ←mul_assoc],
     by_cases h : i = 0,
-    { rw h, simp },
+    { rw [h, ι_square_zero, zero_mul], },
     { replace hn := congr_arg ((*) (ι R (f 0))) (hn (λ i, f $ fin.succ i) (i.pred h)),
-      simp only [fin.succ_pred, ←mul_assoc, mul_zero] at hn,
+      simp only at hn,
+      rw [fin.succ_pred, ←mul_assoc, mul_zero] at hn,
       rw ← zero_add (_ * _),
       conv_lhs {rw ← hn},
       rw [← add_mul, ι_add_mul_swap, zero_mul], } }
 end
-
-@[simp] lemma fin.pred_lt_pred_iff {n : ℕ} {x y : fin n.succ} {hx hy} :
-  x.pred hx < y.pred hy ↔ x < y :=
-by rw [←fin.succ_lt_succ_iff, fin.succ_pred, fin.succ_pred]
 
 variables (R)
 /-- The product of `n` terms of the form `ι R m` is an alternating map.
@@ -194,13 +196,12 @@ def ι_multi (n : ℕ) :
 let F := (multilinear_map.mk_pi_algebra_fin R n (exterior_algebra R M)).comp_linear_map (λ i, ι R)
 in
 { map_eq_args' := λ f x y hfxy hxy, begin
-    simp,
-    wlog h : x < y using [x y, y x],
-    exact lt_or_gt_of_ne hxy, clear hxy,
+    rw [multilinear_map.comp_linear_map_apply, multilinear_map.mk_pi_algebra_fin_apply],
+    wlog h : x < y := lt_or_gt_of_ne hxy using x y,
+    clear hxy,
     induction n with n hn generalizing x y,
     { exact x.elim0, },
     { rw [list.of_fn_succ, list.prod_cons],
-      replace hn := hn (λ i, f $ fin.succ i),
       by_cases hx : x = 0,
       -- one of the repeated terms is on the left
       { rw hx at hfxy h,
@@ -208,7 +209,8 @@ in
         exact ι_mul_prod_list (f ∘ fin.succ) _, },
       -- ignore the left-most term and induct on the remaining ones, decrementing indices
       { convert mul_zero _,
-        refine hn (x.pred hx) (y.pred (ne_of_lt $ lt_of_le_of_lt x.zero_le h).symm)
+        refine hn (λ i, f $ fin.succ i)
+          (x.pred hx) (y.pred (ne_of_lt $ lt_of_le_of_lt x.zero_le h).symm)
           (fin.pred_lt_pred_iff.mpr h) _,
         simp only [fin.succ_pred],
         exact hfxy, } }
@@ -216,7 +218,7 @@ in
   to_fun := F, ..F}
 variables {R}
 
-def ι_multi_apply {n : ℕ} (v : fin n → M) :
+lemma ι_multi_apply {n : ℕ} (v : fin n → M) :
   ι_multi R n v = (list.of_fn $ λ i, ι R (v i)).prod := rfl
 
 end exterior_algebra
