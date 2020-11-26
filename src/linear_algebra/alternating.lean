@@ -1,7 +1,7 @@
 /-
 Copyright (c) 2020 Zhangir Azerbayev. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Author: Zhangir Azerbayev, Eric Wieser.
+Author: Eric Wieser, Zhangir Azerbayev
 -/
 
 import linear_algebra.multilinear
@@ -18,8 +18,8 @@ arguments of the same type.
 * `f.map_eq_args` expresses that `f` is zero when two inputs are equal.
 * `f.map_swap` expresses that `f` is negated when two inputs are swapped.
 * `f.map_perm` expresses how `f` varies by a sign change under a permutation of its inputs.
-* An `add_comm_monoid` or `add_comm_group` structure over `alternating_map`s that matches
-  the definitions over `multilinear_map`s.
+* An `add_comm_monoid`, `add_comm_group`, and `semimodule` structure over `alternating_map`s that
+  matches the definitions over `multilinear_map`s.
 
 ## Implementation notes
 `alternating_map` is defined in terms of `map_eq_args`, as this is easier to work with than
@@ -52,6 +52,8 @@ structure alternating_map extends multilinear_map R (λ i : ι, M) N :=
 (map_eq_args' : ∀ (v : ι → M) (i j : ι) (h : v i = v j) (hij : i ≠ j), to_fun v = 0)
 end
 
+attribute [nolint doc_blame] alternating_map.to_multilinear_map
+
 namespace alternating_map
 
 variables (f f' : alternating_map R M N ι)
@@ -59,7 +61,7 @@ variables (g' : alternating_map R' M' N' ι)
 variables (v : ι → M) (v' : ι → M')
 open function
 
-/-! Basic coercion simp lemmas, largely copied from ring_hom -/
+/-! Basic coercion simp lemmas, largely copied from `ring_hom` -/
 section coercions
 
 instance : has_coe_to_fun (alternating_map R M N ι) := ⟨_, λ x, x.to_fun⟩
@@ -103,8 +105,12 @@ f.to_multilinear_map.map_smul' v i r x
   f v = 0 :=
 f.map_eq_args' v i j h hij
 
-/-! `alternating_map` carries the same `add_comm_monoid` / `add_comm_group` structure as
-`multilinear_map` -/
+/-!
+### Algebraic structure inherited from `multilinear_map`
+
+`alternating_map` carries the same `add_comm_monoid`, `add_comm_group`, and `semimodule` structure
+as `multilinear_map`
+-/
 
 instance : has_add (alternating_map R M N ι) :=
 ⟨λ a b,
@@ -136,7 +142,37 @@ instance : add_comm_group (alternating_map R' M' N' ι) :=
 by refine {zero := 0, add := (+), neg := has_neg.neg, ..alternating_map.add_comm_monoid, ..};
    intros; ext; simp [add_comm, add_left_comm]
 
-/-! Various properties of reordered and repeated inputs -/
+section semimodule
+
+variables {S : Type*} [comm_semiring S] [algebra S R] [semimodule S N]
+  [is_scalar_tower S R N]
+
+instance : has_scalar S (alternating_map R M N ι) :=
+⟨λ c f, {
+  map_eq_args' := λ v i j h hij, by simp [f.map_eq_args v h hij],
+  ..((c • f : multilinear_map R (λ i : ι, M) N)) }⟩
+
+@[simp] lemma smul_apply (f : alternating_map R M N ι) (c : S) (m : ι → M) :
+  (c • f) m = c • f m := rfl
+
+/-- The space of multilinear maps over an algebra over `S` is a module over `S`, for the pointwise
+addition and scalar multiplication. -/
+instance : semimodule S (alternating_map R M N ι) :=
+{ one_smul := λ f, ext $ λ x, one_smul _ _,
+  mul_smul := λ c₁ c₂ f, ext $ λ x, mul_smul _ _ _,
+  smul_zero := λ r, ext $ λ x, smul_zero _,
+  smul_add := λ r f₁ f₂, ext $ λ x, smul_add _ _ _,
+  add_smul := λ r₁ r₂ f, ext $ λ x, add_smul _ _ _,
+  zero_smul := λ f, ext $ λ x, zero_smul _ _ }
+
+end semimodule
+
+/-!
+### Theorems specific to alternating maps
+
+Various properties of reordered and repeated inputs which follow from
+`alternating_map.map_eq_args`.
+-/
 
 lemma map_update_self {i j : ι} (hij : i ≠ j) :
   f (function.update v i (v j)) = 0 :=
