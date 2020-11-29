@@ -984,6 +984,21 @@ def list_equiv_of_equiv {α β : Type*} (e : α ≃ β) : list α ≃ list β :=
 def fin_equiv_subtype (n : ℕ) : fin n ≃ {m // m < n} :=
 ⟨λ x, ⟨x.1, x.2⟩, λ x, ⟨x.1, x.2⟩, λ ⟨a, b⟩, rfl,λ ⟨a, b⟩, rfl⟩
 
+end equiv
+
+/-- An equivalence that removes `i` and maps it to `none`.
+
+This is a version of `fin.pred_above` that produces `option (fin n)` instead of
+requiring a proof that the input is not `i`. -/
+def fin.pred_above_option {n : ℕ} (i : fin n.succ) :
+  fin n.succ ≃ option (fin n)  :=
+{ to_fun := λ x, if h : x = i then none else some (i.pred_above x h,
+  inv_fun := λ x, x.cases_on' i (fin.succ_above i)),
+  left_inv := λ x, if h : x = i then by simp [h] else by simp [h, fin.succ_above_ne],
+  right_inv := λ x, by { cases x, simp, simp [fin.succ_above_ne], }}
+
+namespace equiv
+
 /-- If `α` is equivalent to `β`, then `unique α` is equivalent to `β`. -/
 def unique_congr (e : α ≃ β) : unique α ≃ unique β :=
 { to_fun := λ h, @equiv.unique _ _ h e.symm,
